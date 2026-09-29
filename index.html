@@ -3,282 +3,336 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Поиск Фильмов</title>
+    <title>StreamCheck - Кино-чек</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #8a2be2;
-            --primary-dark: #4b0082;
-            --bg-gradient: linear-gradient(135deg, #2b1055, #7597de);
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-        }
-
+        /* Custom Styles & Animations */
         body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f1115;
+            color: #e2e8f0;
             margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-gradient);
-            color: #fff;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-top: 50px;
+            justify-content: center;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%);
         }
 
-        .container {
-            background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 40px;
-            width: 90%;
-            max-width: 600px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            text-align: center;
+        .glass-panel {
+            background: rgba(30, 33, 40, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        h1 {
-            margin-top: 0;
-            font-size: 28px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        .neon-border:focus-within {
+            box-shadow: 0 0 0 2px #6366f1, 0 0 15px rgba(99, 102, 241, 0.5);
+            border-color: transparent;
         }
 
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+        .btn-check {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-check:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(168, 85, 247, 0.5);
         }
 
-        input {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            font-size: 16px;
-            color: #333;
-            outline: none;
+        .btn-check:active {
+            transform: translateY(1px);
         }
 
-        button {
-            padding: 15px 25px;
-            border: none;
-            border-radius: 10px;
-            background: var(--primary);
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.3s;
+        .result-success {
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        button:hover {
-            background: var(--primary-dark);
+        .result-error {
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
         }
 
-        .loader {
-            display: none;
-            margin: 20px 0;
-            font-style: italic;
+        .result-info {
+            text-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        .result-card {
-            display: none;
-            margin-top: 20px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 15px;
-            padding: 20px;
-            text-align: left;
-            animation: fadeIn 0.5s ease-in-out;
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
         }
 
-        .status-message {
-            font-size: 20px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 10px;
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
         }
 
-        .status-watched { background: rgba(46, 204, 113, 0.3); border: 1px solid #2ecc71; }
-        .status-not-watched { background: rgba(52, 152, 219, 0.3); border: 1px solid #3498db; }
-        .status-wrong-year { background: rgba(231, 76, 60, 0.3); border: 1px solid #e74c3c; }
-
-        .movie-info {
-            display: flex;
-            gap: 20px;
-        }
-
-        .poster {
-            width: 150px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            object-fit: cover;
-        }
-
-        .details h2 { margin: 0 0 10px 0; }
-        .details p { margin: 5px 0; font-size: 14px; line-height: 1.5; color: #ddd; }
-        .desc { margin-top: 15px !important; font-style: italic; }
-
-        @media (max-width: 500px) {
-            .movie-info { flex-direction: column; align-items: center; }
-            .poster { width: 200px; }
-            .details { text-align: center; }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .hidden-element { display: none !important; }
+        .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 </head>
-<body>
+<body class="p-4 sm:p-8">
 
-    <div class="container">
-        <h1>🎬 Кино-чек</h1>
-        <div class="search-box">
-            <input type="text" id="movieInput" placeholder="Введите название фильма/аниме..." onkeypress="handleEnter(event)">
-            <button onclick="checkMovie()">Искать</button>
+    <main class="w-full max-w-2xl mx-auto flex flex-col gap-6">
+        
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="text-3xl sm:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">
+                StreamCheck
+            </h1>
+            <p class="text-gray-400 text-sm sm:text-base">Смотрели ли мы этот фильм?</p>
         </div>
 
-        <div id="loader" class="loader">Ищем информацию...</div>
-
-        <div id="resultCard" class="result-card">
-            <div id="statusMessage" class="status-message"></div>
-            <div class="movie-info">
-                <img id="moviePoster" class="poster" src="" alt="Постер">
-                <div class="details">
-                    <h2 id="movieTitle">Название</h2>
-                    <p><strong>Год:</strong> <span id="movieYear"></span></p>
-                    <p><strong>Рейтинг КП:</strong> ⭐ <span id="movieRating"></span></p>
-                    <p class="desc" id="movieDesc">Описание фильма...</p>
+        <!-- Main Search Panel -->
+        <div class="glass-panel rounded-2xl p-5 sm:p-8 flex flex-col items-center">
+            <div class="w-full relative">
+                <div class="bg-gray-800/80 rounded-xl border border-gray-700 neon-border transition-all flex items-center px-4 py-1">
+                    <svg class="w-6 h-6 text-indigo-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <input type="text" id="movieInput" class="w-full bg-transparent py-4 outline-none text-lg text-white placeholder-gray-500" placeholder="Введите название фильма или аниме..." autocomplete="off">
                 </div>
             </div>
+            
+            <button id="checkMovieBtn" class="btn-check w-full sm:w-auto mt-6 text-white font-bold text-lg py-4 px-12 rounded-xl shadow-lg flex justify-center items-center gap-3">
+                <span id="btnText">Проверить</span>
+                <div id="btnSpinner" class="spinner hidden-element"></div>
+            </button>
         </div>
-    </div>
+
+        <!-- Result Panel -->
+        <div id="resultContainer" class="glass-panel rounded-2xl p-6 sm:p-10 text-center hidden-element">
+            
+            <!-- Movie Info header (Теперь с постером) -->
+            <div id="movieCardInfo" class="mb-6 pb-6 border-b border-gray-700/50 hidden-element flex flex-col sm:flex-row items-center sm:items-start gap-6 text-left">
+                <img id="resMoviePoster" src="" alt="Постер" class="w-32 sm:w-40 rounded-lg shadow-lg object-cover">
+                <div class="w-full flex-1">
+                    <h3 id="resMovieTitle" class="text-2xl font-bold text-white mb-2">Название фильма</h3>
+                    <p class="text-gray-400 text-sm mb-1">Год: <span id="resMovieYear" class="text-gray-200"></span></p>
+                    <p class="text-gray-400 text-sm mb-3">Рейтинг КП: ⭐ <span id="resMovieRating" class="text-gray-200 font-bold"></span></p>
+                    <p id="resMovieDesc" class="text-gray-300 text-sm italic line-clamp-4"></p>
+                </div>
+            </div>
+
+            <!-- Verdict -->
+            <div id="verdictIcon" class="flex justify-center mb-4"></div>
+            <h2 id="verdictTitle" class="text-2xl sm:text-3xl font-black mb-4 uppercase tracking-wide"></h2>
+            
+            <!-- Reason -->
+            <div id="reasonContainer" class="inline-block bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-3 hidden-element">
+                <p id="verdictReason" class="text-gray-300 font-medium"></p>
+            </div>
+            
+            <!-- Error message -->
+            <p id="errorMessage" class="text-red-400 mt-2 hidden-element"></p>
+        </div>
+
+    </main>
 
     <script>
         // ================= НАСТРОЙКИ =================
-        
-        // 1. Ваш ключ Kinopoisk API Unofficial
-        const KP_API_KEY = 'ab5de608-2d16-4362-8e1b-22f05fc1c564'; 
-        
-        // 2. Вставьте сюда ссылку на вашу таблицу в формате CSV
-        const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml';
-        
-        // 3. Колонки для поиска (B = 1, G = 6, L = 11)
-        const SEARCH_COLUMNS = [1, 6, 11]; 
-        
+        const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml";
+        const SEARCH_COLUMNS = [1, 6, 11]; // B=1, G=6, L=11
         // =============================================
 
-        function handleEnter(e) {
-            if (e.key === 'Enter') checkMovie();
+        const DOM = {
+            movieInput: document.getElementById('movieInput'),
+            checkMovieBtn: document.getElementById('checkMovieBtn'),
+            btnText: document.getElementById('btnText'),
+            btnSpinner: document.getElementById('btnSpinner'),
+            
+            resultContainer: document.getElementById('resultContainer'),
+            movieCardInfo: document.getElementById('movieCardInfo'),
+            resMoviePoster: document.getElementById('resMoviePoster'),
+            resMovieTitle: document.getElementById('resMovieTitle'),
+            resMovieYear: document.getElementById('resMovieYear'),
+            resMovieRating: document.getElementById('resMovieRating'),
+            resMovieDesc: document.getElementById('resMovieDesc'),
+            
+            verdictIcon: document.getElementById('verdictIcon'),
+            verdictTitle: document.getElementById('verdictTitle'),
+            reasonContainer: document.getElementById('reasonContainer'),
+            verdictReason: document.getElementById('verdictReason'),
+            errorMessage: document.getElementById('errorMessage')
+        };
+
+        function init() {
+            DOM.checkMovieBtn.addEventListener('click', handleCheckMovie);
+            DOM.movieInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleCheckMovie();
+            });
         }
 
-        async function checkMovie() {
-            const query = document.getElementById('movieInput').value.trim();
-            if (!query) return;
+        function setLoading(isLoading) {
+            DOM.checkMovieBtn.disabled = isLoading;
+            if (isLoading) {
+                DOM.btnText.classList.add('hidden-element');
+                DOM.btnSpinner.classList.remove('hidden-element');
+                DOM.resultContainer.classList.add('hidden-element');
+                DOM.errorMessage.classList.add('hidden-element');
+            } else {
+                DOM.btnText.classList.remove('hidden-element');
+                DOM.btnSpinner.classList.add('hidden-element');
+            }
+        }
 
-            const loader = document.getElementById('loader');
-            const resultCard = document.getElementById('resultCard');
-            
-            loader.style.display = 'block';
-            resultCard.style.display = 'none';
+        // Мощная функция очистки строк (Удаляет все пробелы и символы, оставляя только буквы и цифры)
+        // Это решит проблему невидимых пробелов и кавычек в CSV
+        function normalizeString(str) {
+            if (!str) return '';
+            return str.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
+        }
+
+        async function handleCheckMovie() {
+            const query = DOM.movieInput.value.trim();
+            if (!query) {
+                DOM.movieInput.focus();
+                return;
+            }
+
+            setLoading(true);
 
             try {
                 // 1. Проверяем Гугл Таблицу
-                const sheetRes = await fetch(GOOGLE_SHEET_CSV_URL);
-                const csvText = await sheetRes.text();
-                
-                const rows = csvText.split('\n');
-                let watchedMovies = [];
-
-                rows.forEach(row => {
-                    // Умное разделение CSV (игнорирует запятые внутри текста в кавычках)
-                    const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
-                    
-                    SEARCH_COLUMNS.forEach(colIndex => {
-                        if (columns[colIndex]) {
-                            // Очищаем от кавычек, лишних пробелов и приводим к нижнему регистру
-                            const movieName = columns[colIndex].replace(/["\r]/g, '').trim().toLowerCase();
-                            if (movieName) {
-                                watchedMovies.push(movieName);
+                let isWatched = false;
+                try {
+                    const sheetRes = await fetch(GOOGLE_SHEET_CSV_URL);
+                    if (sheetRes.ok) {
+                        const csvText = await sheetRes.text();
+                        const normQuery = normalizeString(query);
+                        
+                        const rows = csvText.split('\n');
+                        for (let row of rows) {
+                            // Разделение с учетом кавычек
+                            const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
+                            
+                            for (let colIndex of SEARCH_COLUMNS) {
+                                if (columns[colIndex]) {
+                                    const cellVal = normalizeString(columns[colIndex]);
+                                    if (cellVal === normQuery) {
+                                        isWatched = true;
+                                        break;
+                                    }
+                                }
                             }
+                            if (isWatched) break;
                         }
-                    });
-                });
-
-                const isWatched = watchedMovies.includes(query.toLowerCase());
+                    }
+                } catch (e) {
+                    console.warn("Не удалось загрузить таблицу:", e);
+                }
 
                 // 2. Ищем фильм через Kinopoisk API Unofficial
                 const kpUrl = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}&page=1`;
                 const kpRes = await fetch(kpUrl, {
                     method: 'GET',
-                    headers: {
-                        'X-API-KEY': KP_API_KEY,
-                        'Content-Type': 'application/json',
-                    }
+                    headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
                 });
                 
+                if (!kpRes.ok) throw new Error(`Ошибка API Кинопоиска: ${kpRes.status}`);
+
                 const kpData = await kpRes.json();
-                
-                // В Unofficial API фильмы лежат в массиве "films"
                 const movie = kpData.films && kpData.films.length > 0 ? kpData.films[0] : null;
 
-                renderResult(isWatched, movie);
+                renderVerdict(isWatched, movie, query);
             } catch (error) {
                 console.error(error);
-                alert('Произошла ошибка! Проверьте правильность ссылки на Гугл Таблицу.');
+                showError(error.message || "Произошла неизвестная ошибка.");
             } finally {
-                loader.style.display = 'none';
+                setLoading(false);
             }
         }
 
-        function renderResult(isWatched, movie) {
-            const resultCard = document.getElementById('resultCard');
-            const statusMessage = document.getElementById('statusMessage');
-            
-            resultCard.style.display = 'block';
-            statusMessage.className = 'status-message'; // Сброс классов
+        function renderVerdict(isWatched, movie, originalQuery) {
+            DOM.resultContainer.classList.remove('hidden-element');
+            DOM.errorMessage.classList.add('hidden-element');
+            DOM.movieCardInfo.classList.remove('hidden-element');
 
-            // В Unofficial API год приходит как строка (например "2022"), переводим в число
+            // Заполнение карточки фильма
+            if (movie) {
+                DOM.resMovieTitle.textContent = movie.nameRu || movie.nameEn || originalQuery;
+                DOM.resMovieYear.textContent = movie.year || 'Неизвестно';
+                DOM.resMovieRating.textContent = movie.rating && movie.rating !== 'null' ? movie.rating : '-';
+                DOM.resMovieDesc.textContent = movie.description || 'Описание отсутствует.';
+                DOM.resMoviePoster.src = movie.posterUrl || 'https://via.placeholder.com/150x220?text=Нет+постера';
+            } else {
+                DOM.resMovieTitle.textContent = 'Не найдено: ' + originalQuery;
+                DOM.resMovieYear.textContent = '-';
+                DOM.resMovieRating.textContent = '-';
+                DOM.resMovieDesc.textContent = 'Не удалось найти информацию об этом фильме в базе Кинопоиска.';
+                DOM.resMoviePoster.src = 'https://via.placeholder.com/150x220?text=Не+найдено';
+            }
+
+            // Сбрасываем классы анимации, чтобы они проигрывались заново
+            DOM.verdictTitle.className = "text-2xl sm:text-3xl font-black mb-4 uppercase tracking-wide";
+            void DOM.verdictTitle.offsetWidth; // Хак для перезапуска анимации
+            
+            DOM.reasonContainer.classList.add('hidden-element');
+
             let releaseYear = movie && movie.year ? parseInt(movie.year.split('-')[0]) : 0;
 
-            // Логика вывода сообщений
             if (isWatched) {
-                statusMessage.textContent = 'Этот фильм мы уже смотрели ✅';
-                statusMessage.classList.add('status-watched');
+                // Статус: Уже смотрели (Синий цвет / Инфо)
+                DOM.verdictIcon.innerHTML = `
+                    <div class="bg-blue-500/20 p-4 rounded-full">
+                        <svg class="w-16 h-16 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </div>`;
+                DOM.verdictTitle.textContent = "Этот фильм мы уже смотрели";
+                DOM.verdictTitle.classList.add('text-blue-400', 'result-info');
             } else if (movie && releaseYear > 2021) {
-                statusMessage.textContent = 'Этот фильм мы не смотрели, но он не подходит по году ❌';
-                statusMessage.classList.add('status-wrong-year');
-            } else {
-                statusMessage.textContent = 'Этот фильм мы еще не смотрели 🍿';
-                statusMessage.classList.add('status-not-watched');
-            }
-
-            // Заполнение данных из Kinopoisk API Unofficial
-            if (movie) {
-                // Название (сначала русское, если нет - английское)
-                document.getElementById('movieTitle').textContent = movie.nameRu || movie.nameEn || 'Без названия';
-                document.getElementById('movieYear').textContent = movie.year || 'Неизвестно';
-                document.getElementById('movieRating').textContent = movie.rating && movie.rating !== 'null' ? movie.rating : '-';
+                // Статус: Не смотрели, но год > 2021 (Красный цвет / Ошибка)
+                DOM.verdictIcon.innerHTML = `
+                    <div class="bg-red-500/20 p-4 rounded-full">
+                        <svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>`;
+                DOM.verdictTitle.textContent = "Мы не смотрели, но не подходит по году";
+                DOM.verdictTitle.classList.add('text-red-500', 'result-error');
                 
-                // В поиске по ключевому слову API иногда отдает description, иногда нет
-                document.getElementById('movieDesc').textContent = movie.description || 'Описание отсутствует (API не предоставило краткого описания).';
-                
-                const posterUrl = movie.posterUrl || 'https://via.placeholder.com/150x220?text=Нет+постера';
-                document.getElementById('moviePoster').src = posterUrl;
+                DOM.reasonContainer.classList.remove('hidden-element');
+                DOM.verdictReason.textContent = `Год выпуска (${releaseYear}) больше 2021`;
+                DOM.verdictReason.classList.add('text-red-400');
             } else {
-                // Если фильм не найден в базе API
-                document.getElementById('movieTitle').textContent = 'Фильм не найден в базе';
-                document.getElementById('movieYear').textContent = '-';
-                document.getElementById('movieRating').textContent = '-';
-                document.getElementById('movieDesc').textContent = 'Не удалось найти информацию об этом фильме.';
-                document.getElementById('moviePoster').src = 'https://via.placeholder.com/150x220?text=Не+найдено';
+                // Статус: Не смотрели, можно смотреть (Зеленый цвет / Успех)
+                DOM.verdictIcon.innerHTML = `
+                    <div class="bg-green-500/20 p-4 rounded-full">
+                        <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>`;
+                DOM.verdictTitle.textContent = "Этот фильм мы еще не смотрели";
+                DOM.verdictTitle.classList.add('text-green-500', 'result-success');
             }
         }
+
+        function showError(msg) {
+            DOM.resultContainer.classList.remove('hidden-element');
+            DOM.movieCardInfo.classList.add('hidden-element');
+            DOM.verdictIcon.innerHTML = '';
+            DOM.verdictTitle.textContent = '';
+            DOM.reasonContainer.classList.add('hidden-element');
+            
+            DOM.errorMessage.textContent = msg;
+            DOM.errorMessage.classList.remove('hidden-element');
+        }
+
+        init();
     </script>
 </body>
 </html>
