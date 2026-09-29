@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
-        /* Custom Styles & Animations */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0f1115;
@@ -86,7 +85,6 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .hidden-element { display: none !important; }
         .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
@@ -215,11 +213,11 @@
             return properUrl;
         }
 
-        // --- УМНАЯ СУПЕР-ФУНКЦИЯ ДЕТЕКТИРОВАНИЯ WARNER BROS ---
+        // --- УЛЬТИМАТИВНЫЙ ДЕТЕКТОР WARNER BROS ---
         async function isWarnerBros(query, movie, imdbId, kpDetailsText) {
             const wbRegex = /warner|уорнер|ворнер|нью лайн|new line cinema/i;
             
-            // 1. Расширенная локальная база (ловят самые хитрые фильмы)
+            // 1. Мгновенная локальная база (обновлена сложными фильмами)
             const WB_FRANCHISES = [
                 "гарри поттер", "фантастические твари", "бэтмен", "джокер", "супермен", 
                 "лига справедливости", "чудо-женщина", "аквамен", "шазам", "флэш", "отряд самоубийц",
@@ -228,17 +226,17 @@
                 "тихоокеанский рубеж", "шерлок холмс", "мортал комбат", "смертельное оружие", "довод", "начало", 
                 "интерстеллар", "тёмный рыцарь", "скуби-ду", "том и джерри", "луни тюнз", "лего фильм", 
                 "зодиак", "чарли и шоколадная фабрика", "полярный экспресс", "v значит вендетта", "бегущий по лезвию",
-                "гравитация", "дюнкерк", "космический джем", "сияние", "цельнометаллическая оболочка",
+                "гравитация", "книга илая", "дюнкерк", "космический джем", "сияние", "цельнометаллическая оболочка",
                 "заводной апельсин", "престиж", "зеленая миля", "побег из шоушенка"
             ];
             
             if (WB_FRANCHISES.some(f => query.toLowerCase().includes(f))) return true;
             if (movie && movie.nameRu && WB_FRANCHISES.some(f => movie.nameRu.toLowerCase().includes(f))) return true;
 
-            // 2. Описание и студии из Кинопоиска
+            // 2. Проверка описаний Кинопоиска
             if (wbRegex.test(kpDetailsText)) return true;
 
-            // 3. OMDb API (основной производитель)
+            // 3. Проверка OMDb API
             if (imdbId) {
                 try {
                     const omdbRes = await fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`);
@@ -250,24 +248,30 @@
                 } catch(e) { console.warn("OMDb Check Error", e); }
             }
 
-            // 4. Википедия (последний шанс, находит дистрибьютора, как в случае с Гравитацией)
-            try {
-                const wikiQuery = (movie && movie.nameRu ? movie.nameRu : query) + " фильм";
-                const wikiUrl = `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(wikiQuery)}&utf8=&format=json&origin=*`;
-                const wikiRes = await fetch(wikiUrl);
-                if (wikiRes.ok) {
-                    const wikiData = await wikiRes.json();
-                    if (wikiData.query && wikiData.query.search.length > 0) {
-                        const pageId = wikiData.query.search[0].pageid;
-                        const pageRes = await fetch(`https://ru.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&pageids=${pageId}&format=json&origin=*`);
-                        if (pageRes.ok) {
-                            const pageData = await pageRes.json();
-                            const content = pageData.query.pages[pageId].revisions[0]['*'].toLowerCase();
-                            if (wbRegex.test(content)) return true;
+            // 4. ТЯЖЕЛАЯ АРТИЛЛЕРИЯ: Wikidata (Ищет Дистрибьютора по IMDb ID)
+            if (imdbId) {
+                try {
+                    // SPARQL запрос: найти фильм по IMDb ID и вытащить его Производителя (P272) и Дистрибьютора (P750)
+                    const sparqlQuery = `
+                        SELECT ?cLabel WHERE { 
+                          ?m wdt:P345 "${imdbId}". 
+                          { ?m wdt:P272 ?c. } UNION { ?m wdt:P750 ?c. } 
+                          SERVICE wikibase:label { bd:serviceParam wikibase:language "en". ?c rdfs:label ?cLabel } 
+                        }
+                    `;
+                    const wdUrl = "https://query.wikidata.org/sparql?query=" + encodeURIComponent(sparqlQuery) + "&format=json";
+                    const wdRes = await fetch(wdUrl, { headers: { "Accept": "application/sparql-results+json" } });
+                    
+                    if (wdRes.ok) {
+                        const wdData = await wdRes.json();
+                        for (let binding of wdData.results.bindings) {
+                            if (binding.cLabel && wbRegex.test(binding.cLabel.value)) {
+                                return true; // Найдено!
+                            }
                         }
                     }
-                }
-            } catch(e) { console.warn("Wiki Check Error", e); }
+                } catch(e) { console.warn("Wikidata SPARQL Error", e); }
+            }
 
             return false;
         }
@@ -288,7 +292,7 @@
                 let kpDetailsText = "";
                 let isWB = false;
                 
-                // --- ШАГ 1: Поиск в Кинопоиске ---
+                // --- ШАГ 1: Запрос к Кинопоиску ---
                 try {
                     const kpUrl = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}&page=1`;
                     const kpRes = await fetch(kpUrl, {
@@ -304,7 +308,7 @@
                             if (movie.nameRu) searchTerms.push(normalizeString(movie.nameRu));
                             if (movie.nameEn) searchTerms.push(normalizeString(movie.nameEn));
 
-                            // Получаем детали из КП
+                            // Получаем детали из КП для IMDb ID
                             try {
                                 const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${movie.filmId}`;
                                 const detailsRes = await fetch(detailsUrl, {
@@ -329,7 +333,7 @@
                     console.error("Ошибка связи с Кинопоиском:", e);
                 }
 
-                // Запуск детектора Уорнеров
+                // Запуск умного детектора Уорнеров
                 isWB = await isWarnerBros(query, movie, imdbId, kpDetailsText);
 
                 // --- ШАГ 2: Поиск в Гугл Таблице ---
