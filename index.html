@@ -141,10 +141,10 @@
             </div>
 
             <!-- WB Warning -->
-            <div id="wbWarning" class="inline-block bg-orange-500/20 border border-orange-500/50 rounded-lg px-4 py-3 hidden-element w-full text-center">
-                <p class="text-orange-400 font-semibold flex items-center justify-center gap-2">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    Обратите внимание! Присутствует упоминание Warner Bros! Перед заказом убедитесь, что это не WB!
+            <div id="wbWarning" class="inline-block bg-orange-500/20 border border-orange-500/50 rounded-lg px-4 py-3 hidden-element w-full text-center mt-2">
+                <p class="text-orange-400 font-semibold flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span>Обратите внимание! Присутствует упоминание Warner Bros! Перед заказом убедитесь, что это не WB!</span>
                 </p>
             </div>
             
@@ -161,6 +161,17 @@
         // ================= НАСТРОЙКИ =================
         const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
         const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml";
+        
+        // Локальная база главных франшиз Warner Bros (Мгновенное срабатывание)
+        const WB_FRANCHISES = [
+            "гарри поттер", "фантастические твари", "бэтмен", "джокер", "супермен", 
+            "лига справедливости", "чудо-женщина", "аквамен", "шазам", "флэш", "отряд самоубийц",
+            "харли квинн", "властелин колец", "хоббит", "матрица", "дюна", "безумный макс", 
+            "оно", "заклятие", "проклятие аннабель", "монахиня", "мальчишник", 
+            "оушена", "годзилла", "конг", "тихоокеанский рубеж", "шерлок холмс", "мортал комбат",
+            "смертельное оружие", "довод", "начало", "интерстеллар", "тёмный рыцарь",
+            "скуби-ду", "том и джерри", "луни тюнз", "лего фильм"
+        ];
         // =============================================
 
         const DOM = {
@@ -237,8 +248,39 @@
                 let movie = null;
                 let searchTerms = [normalizeString(query)];
                 let isWB = false;
+                const lowerQuery = query.toLowerCase();
                 
-                // 1. СНАЧАЛА ищем фильм через Kinopoisk API (чтобы достать официальное название)
+                // --- ШАГ 1: Проверка WB по локальной базе ---
+                if (WB_FRANCHISES.some(f => lowerQuery.includes(f))) {
+                    isWB = true;
+                }
+
+                // --- ШАГ 2: Ищем через открытую базу Википедии (если локальная база не нашла) ---
+                if (!isWB) {
+                    try {
+                        const wikiUrl = `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
+                        const wikiRes = await fetch(wikiUrl);
+                        if (wikiRes.ok) {
+                            const wikiData = await wikiRes.json();
+                            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
+                                const pageId = wikiData.query.search[0].pageid;
+                                const pageUrl = `https://ru.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&pageids=${pageId}&format=json&origin=*`;
+                                const pageRes = await fetch(pageUrl);
+                                const pageData = await pageRes.json();
+                                const content = pageData.query.pages[pageId].revisions[0]['*'].toLowerCase();
+                                
+                                // Ищем упоминания WB и New Line Cinema (дочерка WB)
+                                if (/warner|уорнер|new line cinema/i.test(content)) {
+                                    isWB = true;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Ошибка проверки Википедии:", e);
+                    }
+                }
+
+                // --- ШАГ 3: Запрос к Кинопоиску для получения постера и правильного названия ---
                 try {
                     const kpUrl = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}&page=1`;
                     const kpRes = await fetch(kpUrl, {
@@ -254,35 +296,35 @@
                             if (movie.nameRu) searchTerms.push(normalizeString(movie.nameRu));
                             if (movie.nameEn) searchTerms.push(normalizeString(movie.nameEn));
 
-                            // 1.1 Дополнительно запрашиваем детальную информацию для проверки студии
-                            try {
-                                const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${movie.filmId}`;
-                                const detailsRes = await fetch(detailsUrl, {
-                                    method: 'GET',
-                                    headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
-                                });
-                                if (detailsRes.ok) {
-                                    const detailsData = await detailsRes.json();
-                                    let fullText = (detailsData.description || '') + ' ' + (detailsData.shortDescription || '');
-                                    if (detailsData.productionCompanies) {
-                                        fullText += ' ' + detailsData.productionCompanies.map(c => c.name).join(' ');
+                            // Доп. проверка студий на Кинопоиске, если Википедия ничего не дала
+                            if (!isWB) {
+                                try {
+                                    const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${movie.filmId}`;
+                                    const detailsRes = await fetch(detailsUrl, {
+                                        method: 'GET',
+                                        headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
+                                    });
+                                    if (detailsRes.ok) {
+                                        const detailsData = await detailsRes.json();
+                                        let fullText = (detailsData.description || '') + ' ' + (detailsData.shortDescription || '');
+                                        if (detailsData.productionCompanies) {
+                                            fullText += ' ' + detailsData.productionCompanies.map(c => c.name).join(' ');
+                                        }
+                                        if (/warner|уорнер|new line cinema/i.test(fullText)) {
+                                            isWB = true;
+                                        }
                                     }
-                                    if (/warner|уорнер/i.test(fullText)) {
-                                        isWB = true;
-                                    }
+                                } catch (e) {
+                                    console.warn("Не удалось загрузить детали фильма", e);
                                 }
-                            } catch (e) {
-                                console.warn("Не удалось загрузить детали фильма", e);
                             }
                         }
-                    } else {
-                        console.warn(`Ошибка API Кинопоиска: ${kpRes.status}`);
                     }
                 } catch (e) {
                     console.error("Не удалось связаться с Кинопоиском:", e);
                 }
 
-                // 2. ТЕПЕРЬ ищем совпадения в Гугл Таблице по ВСЕМ вариантам названия
+                // --- ШАГ 4: Поиск в Гугл Таблице по всем вариантам названия ---
                 let isWatched = false;
                 let rowsLength = 0;
                 let tableDebugMsg = "";
@@ -299,7 +341,6 @@
                             throw new Error("Блокировка прямого доступа");
                         }
                     } catch (e) {
-                        console.warn("Используем резервный прокси для загрузки таблицы...");
                         const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(csvUrl);
                         const proxyRes = await fetch(proxyUrl);
                         if (!proxyRes.ok) throw new Error("Прокси недоступен");
@@ -330,7 +371,6 @@
                                             exactMatch = true;
                                             break;
                                         }
-                                        
                                         if (term.length > 5 && cellVal.length > 5) {
                                             if (cellVal.includes(term) || term.includes(cellVal)) {
                                                 partialMatch = true;
@@ -391,6 +431,7 @@
 
             let releaseYear = movie && movie.year ? parseInt(movie.year.split('-')[0]) : 0;
 
+            // Если фильм уже смотрели — игнорируем год и WB, просто пишем "Смотрели"
             if (isWatched) {
                 DOM.verdictIcon.innerHTML = `
                     <div class="bg-blue-500/20 p-4 rounded-full">
@@ -399,7 +440,7 @@
                 DOM.verdictTitle.textContent = "Этот фильм мы уже смотрели";
                 DOM.verdictTitle.classList.add('text-blue-400', 'result-info');
             } else {
-                // Включаем предупреждение WB, если есть маркер isWB и фильм НЕ смотрели
+                // Выводим плашку WB только если фильм НЕ смотрели
                 if (isWB) {
                     DOM.wbWarning.classList.remove('hidden-element');
                 }
