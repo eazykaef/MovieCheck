@@ -159,10 +159,11 @@
 
     <script>
         // ================= НАСТРОЙКИ =================
-        const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+        const KP_API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+        const OMDB_API_KEY = "cbe9adcf"; 
         const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml";
         
-        // Локальная база главных франшиз Warner Bros (Мгновенное срабатывание)
+        // Локальная страховочная база
         const WB_FRANCHISES = [
             "гарри поттер", "фантастические твари", "бэтмен", "джокер", "супермен", 
             "лига справедливости", "чудо-женщина", "аквамен", "шазам", "флэш", "отряд самоубийц",
@@ -170,7 +171,7 @@
             "оно", "заклятие", "проклятие аннабель", "монахиня", "мальчишник", 
             "оушена", "годзилла", "конг", "тихоокеанский рубеж", "шерлок холмс", "мортал комбат",
             "смертельное оружие", "довод", "начало", "интерстеллар", "тёмный рыцарь",
-            "скуби-ду", "том и джерри", "луни тюнз", "лего фильм"
+            "скуби-ду", "том и джерри", "луни тюнз", "лего фильм", "зодиак"
         ];
         // =============================================
 
@@ -248,44 +249,19 @@
                 let movie = null;
                 let searchTerms = [normalizeString(query)];
                 let isWB = false;
-                const lowerQuery = query.toLowerCase();
+                let imdbId = null;
                 
-                // --- ШАГ 1: Проверка WB по локальной базе ---
-                if (WB_FRANCHISES.some(f => lowerQuery.includes(f))) {
+                // --- ШАГ 1: Локальная страховочная база ---
+                if (WB_FRANCHISES.some(f => query.toLowerCase().includes(f))) {
                     isWB = true;
                 }
 
-                // --- ШАГ 2: Ищем через открытую базу Википедии (если локальная база не нашла) ---
-                if (!isWB) {
-                    try {
-                        const wikiUrl = `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json&origin=*`;
-                        const wikiRes = await fetch(wikiUrl);
-                        if (wikiRes.ok) {
-                            const wikiData = await wikiRes.json();
-                            if (wikiData.query && wikiData.query.search && wikiData.query.search.length > 0) {
-                                const pageId = wikiData.query.search[0].pageid;
-                                const pageUrl = `https://ru.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&pageids=${pageId}&format=json&origin=*`;
-                                const pageRes = await fetch(pageUrl);
-                                const pageData = await pageRes.json();
-                                const content = pageData.query.pages[pageId].revisions[0]['*'].toLowerCase();
-                                
-                                // Ищем упоминания WB и New Line Cinema (дочерка WB)
-                                if (/warner|уорнер|new line cinema/i.test(content)) {
-                                    isWB = true;
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn("Ошибка проверки Википедии:", e);
-                    }
-                }
-
-                // --- ШАГ 3: Запрос к Кинопоиску для получения постера и правильного названия ---
+                // --- ШАГ 2: Запрос к Кинопоиску ---
                 try {
                     const kpUrl = `https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}&page=1`;
                     const kpRes = await fetch(kpUrl, {
                         method: 'GET',
-                        headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
+                        headers: { 'X-API-KEY': KP_API_KEY, 'Content-Type': 'application/json' }
                     });
                     
                     if (kpRes.ok) {
@@ -296,16 +272,20 @@
                             if (movie.nameRu) searchTerms.push(normalizeString(movie.nameRu));
                             if (movie.nameEn) searchTerms.push(normalizeString(movie.nameEn));
 
-                            // Доп. проверка студий на Кинопоиске, если Википедия ничего не дала
-                            if (!isWB) {
-                                try {
-                                    const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${movie.filmId}`;
-                                    const detailsRes = await fetch(detailsUrl, {
-                                        method: 'GET',
-                                        headers: { 'X-API-KEY': API_KEY, 'Content-Type': 'application/json' }
-                                    });
-                                    if (detailsRes.ok) {
-                                        const detailsData = await detailsRes.json();
+                            // Получаем детальную информацию из Кинопоиска (там лежит IMDB ID)
+                            try {
+                                const detailsUrl = `https://kinopoiskapiunofficial.tech/api/v2.2/films/${movie.filmId}`;
+                                const detailsRes = await fetch(detailsUrl, {
+                                    method: 'GET',
+                                    headers: { 'X-API-KEY': KP_API_KEY, 'Content-Type': 'application/json' }
+                                });
+                                
+                                if (detailsRes.ok) {
+                                    const detailsData = await detailsRes.json();
+                                    imdbId = detailsData.imdbId;
+                                    
+                                    // Параллельно ищем упоминания WB в тексте описания Кинопоиска
+                                    if (!isWB) {
                                         let fullText = (detailsData.description || '') + ' ' + (detailsData.shortDescription || '');
                                         if (detailsData.productionCompanies) {
                                             fullText += ' ' + detailsData.productionCompanies.map(c => c.name).join(' ');
@@ -314,17 +294,35 @@
                                             isWB = true;
                                         }
                                     }
-                                } catch (e) {
-                                    console.warn("Не удалось загрузить детали фильма", e);
                                 }
+                            } catch (e) {
+                                console.warn("Не удалось загрузить детали фильма с КП:", e);
                             }
                         }
                     }
                 } catch (e) {
-                    console.error("Не удалось связаться с Кинопоиском:", e);
+                    console.error("Ошибка связи с Кинопоиском:", e);
                 }
 
-                // --- ШАГ 4: Поиск в Гугл Таблице по всем вариантам названия ---
+                // --- ШАГ 3: Запрос к OMDb API (Самый надежный способ проверки студии) ---
+                if (!isWB && imdbId) {
+                    try {
+                        const omdbUrl = `https://www.omdbapi.com/?i=${imdbId}&apikey=${OMDB_API_KEY}`;
+                        const omdbRes = await fetch(omdbUrl);
+                        
+                        if (omdbRes.ok) {
+                            const omdbData = await omdbRes.json();
+                            // Ищем в поле Production
+                            if (omdbData.Production && /warner|new line/i.test(omdbData.Production)) {
+                                isWB = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Ошибка связи с OMDb API:", e);
+                    }
+                }
+
+                // --- ШАГ 4: Поиск в Гугл Таблице ---
                 let isWatched = false;
                 let rowsLength = 0;
                 let tableDebugMsg = "";
@@ -338,7 +336,7 @@
                         if (sheetRes.ok) {
                             csvText = await sheetRes.text();
                         } else {
-                            throw new Error("Блокировка прямого доступа");
+                            throw new Error("Блокировка доступа");
                         }
                     } catch (e) {
                         const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(csvUrl);
@@ -349,7 +347,7 @@
                     }
 
                     if (csvText && csvText.toLowerCase().includes('<html')) {
-                         tableDebugMsg = "⚠️ Ошибка: Гугл отдал веб-страницу. Проверьте формат публикации.";
+                         tableDebugMsg = "⚠️️ Ошибка: Гугл отдал веб-страницу.";
                     } else if (csvText) {
                         const rows = csvText.split('\n');
                         rowsLength = rows.length;
@@ -385,7 +383,7 @@
                         }
                         
                         isWatched = exactMatch || partialMatch;
-                        tableDebugMsg = `✅ Гугл Таблица успешно проверена (строк: ${rowsLength}). <a href="${GOOGLE_SHEET_URL}" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">Открыть оригинальную таблицу</a>`;
+                        tableDebugMsg = `✅ Таблица проверена (строк: ${rowsLength}). <a href="${GOOGLE_SHEET_URL}" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">Оригинальная таблица</a>`;
                     }
                 } catch (err) {
                     tableDebugMsg = `⚠️ Ошибка чтения таблицы: ${err.message}.`;
@@ -431,7 +429,6 @@
 
             let releaseYear = movie && movie.year ? parseInt(movie.year.split('-')[0]) : 0;
 
-            // Если фильм уже смотрели — игнорируем год и WB, просто пишем "Смотрели"
             if (isWatched) {
                 DOM.verdictIcon.innerHTML = `
                     <div class="bg-blue-500/20 p-4 rounded-full">
@@ -440,7 +437,6 @@
                 DOM.verdictTitle.textContent = "Этот фильм мы уже смотрели";
                 DOM.verdictTitle.classList.add('text-blue-400', 'result-info');
             } else {
-                // Выводим плашку WB только если фильм НЕ смотрели
                 if (isWB) {
                     DOM.wbWarning.classList.remove('hidden-element');
                 }
