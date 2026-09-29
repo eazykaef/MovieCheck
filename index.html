@@ -150,7 +150,7 @@
     <script>
         // ================= НАСТРОЙКИ =================
         const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
-        const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml";
+        const GOOGLE_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeGf589-vK6qDVfY569rNL8k5Q_Nm4ZJBD6gC2YASrBzSuNFaEaASxV84IpfzCzUeSIJGJxP7gsjYA/pubhtml";
         // =============================================
 
         const DOM = {
@@ -200,6 +200,17 @@
             return str.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
         }
 
+        // Функция автоматического исправления ссылки
+        function getCsvUrl(url) {
+            let properUrl = url;
+            if (properUrl.includes('/pubhtml')) {
+                properUrl = properUrl.substring(0, properUrl.indexOf('/pubhtml')) + '/pub?output=csv';
+            } else if (properUrl.includes('/edit')) {
+                properUrl = properUrl.substring(0, properUrl.indexOf('/edit')) + '/export?format=csv';
+            }
+            return properUrl;
+        }
+
         async function handleCheckMovie() {
             const query = DOM.movieInput.value.trim();
             if (!query) {
@@ -210,20 +221,20 @@
             setLoading(true);
 
             try {
-                // 1. Проверяем Гугл Таблицу (Теперь по всем ячейкам)
+                // 1. Проверяем Гугл Таблицу (исправляем ссылку на ходу)
                 let isWatched = false;
                 try {
-                    const sheetRes = await fetch(GOOGLE_SHEET_CSV_URL);
+                    const csvUrl = getCsvUrl(GOOGLE_SHEET_URL);
+                    const sheetRes = await fetch(csvUrl);
+                    
                     if (sheetRes.ok) {
                         const csvText = await sheetRes.text();
                         const normQuery = normalizeString(query);
                         
                         const rows = csvText.split('\n');
                         for (let row of rows) {
-                            // Разделение с учетом кавычек
                             const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
                             
-                            // Проходимся по КАЖДОЙ ячейке в строке
                             for (let cell of columns) {
                                 if (cell) {
                                     const cellVal = normalizeString(cell);
@@ -235,6 +246,8 @@
                             }
                             if (isWatched) break;
                         }
+                    } else {
+                         console.warn("Ошибка доступа к таблице. Код:", sheetRes.status);
                     }
                 } catch (e) {
                     console.warn("Не удалось загрузить таблицу:", e);
@@ -266,7 +279,6 @@
             DOM.errorMessage.classList.add('hidden-element');
             DOM.movieCardInfo.classList.remove('hidden-element');
 
-            // Заполнение карточки фильма
             if (movie) {
                 DOM.resMovieTitle.textContent = movie.nameRu || movie.nameEn || originalQuery;
                 DOM.resMovieYear.textContent = movie.year || 'Неизвестно';
@@ -281,7 +293,6 @@
                 DOM.resMoviePoster.src = 'https://via.placeholder.com/150x220?text=Не+найдено';
             }
 
-            // Перезапуск анимаций
             DOM.verdictTitle.className = "text-2xl sm:text-3xl font-black mb-4 uppercase tracking-wide";
             void DOM.verdictTitle.offsetWidth; 
             
@@ -290,7 +301,6 @@
             let releaseYear = movie && movie.year ? parseInt(movie.year.split('-')[0]) : 0;
 
             if (isWatched) {
-                // Статус: Уже смотрели (Синий цвет / Инфо)
                 DOM.verdictIcon.innerHTML = `
                     <div class="bg-blue-500/20 p-4 rounded-full">
                         <svg class="w-16 h-16 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
@@ -298,7 +308,6 @@
                 DOM.verdictTitle.textContent = "Этот фильм мы уже смотрели";
                 DOM.verdictTitle.classList.add('text-blue-400', 'result-info');
             } else if (movie && releaseYear > 2021) {
-                // Статус: Не смотрели, но год > 2021 (Красный цвет / Ошибка)
                 DOM.verdictIcon.innerHTML = `
                     <div class="bg-red-500/20 p-4 rounded-full">
                         <svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -310,7 +319,6 @@
                 DOM.verdictReason.textContent = `Год выпуска (${releaseYear}) больше 2021`;
                 DOM.verdictReason.classList.add('text-red-400');
             } else {
-                // Статус: Не смотрели, можно смотреть (Зеленый цвет / Успех)
                 DOM.verdictIcon.innerHTML = `
                     <div class="bg-green-500/20 p-4 rounded-full">
                         <svg class="w-16 h-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
