@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamCheck - Проверка фильмов</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 700px;
+            width: 100%;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            background-color: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+        }
+        input:focus {
+            box-shadow: 0 0 0 2px #6200ea;
+        }
+        button {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            background-color: #6200ea;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #7c4dff; }
+        
+        .card {
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none; /* Скрыто по умолчанию */
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            margin-top: 20px;
+        }
+        
+        /* Стили для плашек статуса */
+        .status {
+            padding: 20px;
+            text-align: center;
+        }
+        .status.allowed { 
+            background-color: #1b5e20; /* Зеленый фон */
+            border-bottom: 4px solid #2e7d32;
+        }
+        .status.forbidden { 
+            background-color: #b71c1c; /* Красный фон */
+            border-bottom: 4px solid #c62828;
+        }
+        
+        .status-title {
+            font-weight: bold;
+            font-size: 22px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        .status.allowed .status-title { color: #a5d6a7; }
+        .status.forbidden .status-title { color: #ffcdd2; }
+        
+        .reasons {
+            font-size: 15px;
+            margin-top: 10px;
+            color: rgba(255,255,255,0.9);
+            line-height: 1.5;
+        }
+
+        /* Карточка с информацией о фильме */
+        .movie-info {
+            display: flex;
+            padding: 25px;
+            gap: 25px;
+        }
+        .poster {
+            width: 200px;
+            height: 300px;
+            border-radius: 8px;
+            object-fit: cover;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .details { flex: 1; }
+        .title { margin: 0 0 10px 0; font-size: 26px; }
+        .meta { color: #aaaaaa; font-size: 15px; margin-bottom: 15px; }
+        .description { 
+            font-size: 15px; 
+            line-height: 1.6; 
+            color: #cccccc; 
+            text-align: justify;
+        }
+        .loading { text-align: center; display: none; font-size: 18px; color: #aaa; }
+        .error { color: #ff5252; text-align: center; font-size: 18px; display: none; }
+
+        @media (max-width: 600px) {
+            .movie-info { flex-direction: column; align-items: center; }
+            .poster { width: 100%; max-width: 250px; height: auto; }
+            .details { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 style="text-align: center; margin-bottom: 30px;">Проверка на АП (Twitch/YouTube)</h1>
+    
+    <div class="search-box">
+        <input type="text" id="movieInput" placeholder="Введите название фильма..." onkeypress="if(event.key === 'Enter') checkMovie()">
+        <button onclick="checkMovie()">Проверить</button>
+    </div>
+    
+    <div id="loading" class="loading">Ищем фильм в базе данных...</div>
+    <div id="error" class="error"></div>
+
+    <div id="movieCard" class="card">
+        <!-- Блок вердикта -->
+        <div id="statusBanner" class="status">
+            <h2 id="statusText" class="status-title"></h2>
+            <div id="statusReasons" class="reasons"></div>
+        </div>
+        
+        <!-- Блок с обложкой и текстом -->
+        <div class="movie-info">
+            <img id="moviePoster" class="poster" src="" alt="Обложка фильма">
+            <div class="details">
+                <h2 id="movieTitle" class="title"></h2>
+                <div id="movieMeta" class="meta"></div>
+                <div id="movieDescription" class="description"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ВСТАВЬТЕ ВАШ КЛЮЧ ОТ КИНОПОИСКА ВМЕСТО ТЕКСТА В КАВЫЧКАХ
+    const API_KEY = "ab5de608-2d16-4362-8e1b-22f05fc1c564"; 
+
+    async function checkMovie() {
+        const query = document.getElementById('movieInput').value.trim();
+        if (!query) return;
+
+        const loading = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const card = document.getElementById('movieCard');
+
+        // Сброс состояния
+        loading.style.display = 'block';
+        errorDiv.style.display = 'none';
+        card.style.display = 'none';
+
+        try {
+            // 1. Поиск фильма по ключевому слову
+            const searchRes = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
+                headers: { 'X-API-KEY': API_KEY }
+            });
+            const searchData = await searchRes.json();
+
+            if (!searchData.films || searchData.films.length === 0) {
+                throw new Error("Фильм не найден.");
+            }
+
+            const filmId = searchData.films[0].filmId;
+
+            // 2. Получение расширенной информации о фильме
+            const detailRes = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.2/films/${filmId}`, {
+                headers: { 'X-API-KEY': API_KEY }
+            });
+            const filmData = await detailRes.json();
+
+            // Извлекаем данные
+            const title = filmData.nameRu || filmData.nameOriginal || "Без названия";
+            const year = filmData.year ? parseInt(filmData.year, 10) : 0;
+            const description = filmData.description || searchData.films[0].description || "Описание отсутствует.";
+            const posterUrl = filmData.posterUrl || searchData.films[0].posterUrl || "";
+            const length = filmData.filmLength ? `${filmData.filmLength} мин.` : "Неизвестно";
+            
+            // Кинопоиск не всегда явно отдает студии в бесплатном API,
+            // поэтому мы ищем упоминания в оригинальном названии, описании и кратком описании
+            const textForStudioCheck = `
+                ${filmData.description || ''} 
+                ${filmData.shortDescription || ''} 
+                ${filmData.nameOriginal || ''}
+            `.toLowerCase();
+
+            // 3. Логика проверки (собираем список совпадений)
+            let reasons = [];
+            
+            if (year > 2021) {
+                reasons.push(`Фильм вышел позже 2021 года (Релиз: ${year} г.)`);
+            }
+            if (textForStudioCheck.includes("warner")) {
+                reasons.push("Присутствуют права студии Warner Bros.");
+            }
+            if (textForStudioCheck.includes("netflix")) {
+                reasons.push("Фильм выпущен платформой Netflix.");
+            }
+            if (textForStudioCheck.includes("amazon")) {
+                reasons.push("Фильм выпущен платформой Amazon.");
+            }
+
+            // 4. Отрисовка результатов
+            document.getElementById('movieTitle').innerText = title;
+            document.getElementById('movieMeta').innerText = `Год: ${year || '?'} | Длительность: ${length}`;
+            document.getElementById('movieDescription').innerText = description;
+            
+            if (posterUrl) {
+                document.getElementById('moviePoster').src = posterUrl;
+                document.getElementById('moviePoster').style.display = 'block';
+            } else {
+                document.getElementById('moviePoster').style.display = 'none';
+            }
+
+            const statusBanner = document.getElementById('statusBanner');
+            const statusText = document.getElementById('statusText');
+            const statusReasons = document.getElementById('statusReasons');
+
+            // ЕСЛИ ХОТЯ БЫ ОДИН КРИТЕРИЙ СОВПАЛ -> НЕЛЬЗЯ СМОТРЕТЬ
+            if (reasons.length > 0) {
+                statusBanner.className = 'status forbidden';
+                statusText.innerText = '🚫 ФИЛЬМ НЕЛЬЗЯ СМОТРЕТЬ НА СТРИМЕ';
+                statusReasons.innerHTML = "<strong>Найдены следующие проблемы:</strong><br>" + reasons.map(r => "— " + r).join('<br>');
+            } 
+            // ЕСЛИ НИ ОДИН КРИТЕРИЙ НЕ СОВПАЛ -> МОЖНО СМОТРЕТЬ
+            else {
+                statusBanner.className = 'status allowed';
+                statusText.innerText = '✅ ФИЛЬМ МОЖНО СМОТРЕТЬ';
+                statusReasons.innerText = 'Ни один из запрещающих критериев (Год > 2021, Warner, Netflix, Amazon) не обнаружен.';
+            }
+
+            loading.style.display = 'none';
+            card.style.display = 'block';
+
+        } catch (err) {
+            loading.style.display = 'none';
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = err.message === "Фильм не найден." 
+                ? "Фильм с таким названием не найден. Попробуйте ввести точнее." 
+                : "Произошла ошибка (возможно, неверный API ключ или лимит запросов).";
+        }
+    }
+</script>
+</body>
+</html>
