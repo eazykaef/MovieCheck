@@ -15,11 +15,11 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
             background-image: 
                 radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
                 radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%);
+            padding-top: 2rem;
+            padding-bottom: 2rem;
         }
 
         .glass-panel {
@@ -84,88 +84,133 @@
             height: 24px;
             animation: spin 1s linear infinite;
         }
+        
+        .spinner-small {
+            width: 18px;
+            height: 18px;
+            border-width: 2px;
+        }
 
         .hidden-element { display: none !important; }
         .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 </head>
-<body class="p-4 sm:p-8">
+<body class="px-4 sm:px-8">
 
-    <main class="w-full max-w-2xl mx-auto flex flex-col gap-6">
+    <!-- СЕТКА: Слева поиск (span 2), Справа стата (span 1) -->
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        <div class="text-center mb-4">
-            <h1 class="text-3xl sm:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">
-                Videtskih Movie Checker
-            </h1>
-            <p class="text-gray-400 text-sm sm:text-base">Смотрели ли мы этот фильм?</p>
-        </div>
+        <!-- ================= ОСНОВНАЯ КОЛОНКА (ЛЕВАЯ) ================= -->
+        <main class="lg:col-span-2 flex flex-col gap-6 w-full">
+            
+            <div class="text-center lg:text-left mb-2 mt-4 lg:mt-0">
+                <h1 class="text-3xl sm:text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-2">
+                    Videtskih Movie Checker
+                </h1>
+                <p class="text-gray-400 text-sm sm:text-base">Смотрели ли мы этот фильм?</p>
+            </div>
 
-        <div class="glass-panel rounded-2xl p-5 sm:p-8 flex flex-col items-center">
-            <div class="w-full relative">
-                <div class="bg-gray-800/80 rounded-xl border border-gray-700 neon-border transition-all flex items-center px-4 py-1">
-                    <svg class="w-6 h-6 text-indigo-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <input type="text" id="movieInput" class="w-full bg-transparent py-4 outline-none text-lg text-white placeholder-gray-500" placeholder="Введите название фильма или аниме..." autocomplete="off">
+            <!-- Main Search Panel -->
+            <div class="glass-panel rounded-2xl p-5 sm:p-8 flex flex-col items-center">
+                <div class="w-full relative">
+                    <div class="bg-gray-800/80 rounded-xl border border-gray-700 neon-border transition-all flex items-center px-4 py-1">
+                        <svg class="w-6 h-6 text-indigo-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <input type="text" id="movieInput" class="w-full bg-transparent py-4 outline-none text-lg text-white placeholder-gray-500" placeholder="Введите название фильма или аниме..." autocomplete="off">
+                    </div>
+                </div>
+                
+                <button id="checkMovieBtn" class="btn-check w-full sm:w-auto mt-6 text-white font-bold text-lg py-4 px-12 rounded-xl shadow-lg flex justify-center items-center gap-3">
+                    <span id="btnText">Проверить</span>
+                    <div id="btnSpinner" class="spinner hidden-element"></div>
+                </button>
+            </div>
+
+            <!-- Result Panel -->
+            <div id="resultContainer" class="glass-panel rounded-2xl p-6 sm:p-10 text-center hidden-element">
+                
+                <div id="movieCardInfo" class="mb-6 pb-6 border-b border-gray-700/50 hidden-element flex flex-col sm:flex-row items-center sm:items-start gap-6 text-left">
+                    <img id="resMoviePoster" src="" alt="Постер" class="w-32 sm:w-40 rounded-lg shadow-lg object-cover">
+                    <div class="w-full flex-1">
+                        <h3 id="resMovieTitle" class="text-2xl font-bold text-white mb-2">Название фильма</h3>
+                        <p class="text-gray-400 text-sm mb-1">Год: <span id="resMovieYear" class="text-gray-200"></span></p>
+                        <p class="text-gray-400 text-sm mb-3">Рейтинг КП: ⭐ <span id="resMovieRating" class="text-gray-200 font-bold"></span></p>
+                        <p id="resMovieDesc" class="text-gray-300 text-sm italic line-clamp-4"></p>
+                    </div>
+                </div>
+
+                <div id="verdictIcon" class="flex justify-center mb-4"></div>
+                <h2 id="verdictTitle" class="text-2xl sm:text-3xl font-black mb-4 uppercase tracking-wide"></h2>
+                
+                <!-- Данные из таблицы при нахождении фильма -->
+                <div id="watchedDetails" class="hidden-element bg-blue-900/40 border border-blue-500/30 rounded-lg p-5 mt-2 text-left w-full">
+                    <h4 class="text-blue-300 font-bold mb-3 border-b border-blue-500/30 pb-2">Информация из таблицы:</h4>
+                    <div class="space-y-2 text-sm sm:text-base">
+                        <p class="text-blue-100 flex justify-between">
+                            <span class="text-blue-300/80">Дата просмотра:</span>
+                            <span id="resWatchedDate" class="font-medium">-</span>
+                        </p>
+                        <p class="text-blue-100 flex justify-between">
+                            <span class="text-blue-300/80">Кто выиграл аукцион:</span>
+                            <span id="resWatchedWinner" class="font-medium text-right ml-4">-</span>
+                        </p>
+                        <p class="text-blue-100 flex justify-between">
+                            <span class="text-blue-300/80">Кто покупал:</span>
+                            <span id="resWatchedBuyer" class="font-medium text-right ml-4">-</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div id="reasonContainer" class="inline-block bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-3 hidden-element mt-4 mb-4">
+                    <p id="verdictReason" class="text-gray-300 font-medium"></p>
+                </div>
+
+                <!-- WB Warning -->
+                <div id="wbWarning" class="inline-block bg-orange-500/20 border border-orange-500/50 rounded-lg px-4 py-3 hidden-element w-full text-center mt-4">
+                    <p class="text-orange-400 font-semibold flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <span>Обратите внимание! Присутствует упоминание Warner Bros! Перед заказом убедитесь, что это не WB!</span>
+                    </p>
+                </div>
+                
+                <p id="errorMessage" class="text-red-400 mt-2 hidden-element"></p>
+            </div>
+
+            <div id="debugInfo" class="text-xs text-center text-gray-500 bg-gray-800/40 p-3 rounded-lg border border-gray-700/50 hidden-element"></div>
+        </main>
+
+        <!-- ================= КОЛОНКА СТАТИСТИКИ (ПРАВАЯ) ================= -->
+        <aside class="lg:col-span-1 flex flex-col gap-5 w-full mt-4 lg:mt-0">
+            
+            <!-- Блок 1 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <h3 class="text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Всего картин посмотрено</h3>
+                <div class="relative z-10 flex items-center h-10">
+                    <div id="statTotal" class="text-4xl sm:text-5xl font-black text-white"><span class="spinner spinner-small inline-block"></span></div>
                 </div>
             </div>
-            
-            <button id="checkMovieBtn" class="btn-check w-full sm:w-auto mt-6 text-white font-bold text-lg py-4 px-12 rounded-xl shadow-lg flex justify-center items-center gap-3">
-                <span id="btnText">Проверить</span>
-                <div id="btnSpinner" class="spinner hidden-element"></div>
-            </button>
-        </div>
 
-        <div id="resultContainer" class="glass-panel rounded-2xl p-6 sm:p-10 text-center hidden-element">
-            
-            <div id="movieCardInfo" class="mb-6 pb-6 border-b border-gray-700/50 hidden-element flex flex-col sm:flex-row items-center sm:items-start gap-6 text-left">
-                <img id="resMoviePoster" src="" alt="Постер" class="w-32 sm:w-40 rounded-lg shadow-lg object-cover">
-                <div class="w-full flex-1">
-                    <h3 id="resMovieTitle" class="text-2xl font-bold text-white mb-2">Название фильма</h3>
-                    <p class="text-gray-400 text-sm mb-1">Год: <span id="resMovieYear" class="text-gray-200"></span></p>
-                    <p class="text-gray-400 text-sm mb-3">Рейтинг КП: ⭐ <span id="resMovieRating" class="text-gray-200 font-bold"></span></p>
-                    <p id="resMovieDesc" class="text-gray-300 text-sm italic line-clamp-4"></p>
+            <!-- Блок 2 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-green-500/10 rounded-full blur-xl group-hover:bg-green-500/20 transition-all"></div>
+                <h3 class="text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Самый везучий чатер</h3>
+                <div class="relative z-10 flex items-center h-8">
+                    <div id="statLucky" class="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400"><span class="spinner spinner-small inline-block border-green-400"></span></div>
                 </div>
             </div>
 
-            <div id="verdictIcon" class="flex justify-center mb-4"></div>
-            <h2 id="verdictTitle" class="text-2xl sm:text-3xl font-black mb-4 uppercase tracking-wide"></h2>
-            
-            <!-- Данные из таблицы при нахождении фильма -->
-            <div id="watchedDetails" class="hidden-element bg-blue-900/40 border border-blue-500/30 rounded-lg p-5 mt-2 text-left w-full">
-                <h4 class="text-blue-300 font-bold mb-3 border-b border-blue-500/30 pb-2">Информация из таблицы:</h4>
-                <div class="space-y-2 text-sm sm:text-base">
-                    <p class="text-blue-100 flex justify-between">
-                        <span class="text-blue-300/80">Дата просмотра:</span>
-                        <span id="resWatchedDate" class="font-medium">-</span>
-                    </p>
-                    <p class="text-blue-100 flex justify-between">
-                        <span class="text-blue-300/80">Кто выиграл аукцион:</span>
-                        <span id="resWatchedWinner" class="font-medium text-right ml-4">-</span>
-                    </p>
-                    <p class="text-blue-100 flex justify-between">
-                        <span class="text-blue-300/80">Кто покупал:</span>
-                        <span id="resWatchedBuyer" class="font-medium text-right ml-4">-</span>
-                    </p>
+            <!-- Блок 3 -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+                <div class="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
+                <h3 class="text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Самый богатый чатер</h3>
+                <div class="relative z-10 flex items-center h-8">
+                    <div id="statRich" class="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400"><span class="spinner spinner-small inline-block border-yellow-400"></span></div>
                 </div>
             </div>
 
-            <div id="reasonContainer" class="inline-block bg-gray-800/80 border border-gray-700 rounded-lg px-4 py-3 hidden-element mt-4 mb-4">
-                <p id="verdictReason" class="text-gray-300 font-medium"></p>
-            </div>
+        </aside>
 
-            <!-- WB Warning -->
-            <div id="wbWarning" class="inline-block bg-orange-500/20 border border-orange-500/50 rounded-lg px-4 py-3 hidden-element w-full text-center mt-4">
-                <p class="text-orange-400 font-semibold flex flex-col sm:flex-row items-center justify-center gap-2">
-                    <svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    <span>Обратите внимание! Присутствует упоминание Warner Bros! Перед заказом убедитесь, что это не WB!</span>
-                </p>
-            </div>
-            
-            <p id="errorMessage" class="text-red-400 mt-2 hidden-element"></p>
-        </div>
-
-        <div id="debugInfo" class="text-xs text-center text-gray-500 bg-gray-800/40 p-3 rounded-lg border border-gray-700/50 hidden-element"></div>
-
-    </main>
+    </div>
 
     <script>
         // ================= НАСТРОЙКИ =================
@@ -189,7 +234,6 @@
             verdictIcon: document.getElementById('verdictIcon'),
             verdictTitle: document.getElementById('verdictTitle'),
             
-            // Новые элементы для инфы из таблицы
             watchedDetails: document.getElementById('watchedDetails'),
             resWatchedDate: document.getElementById('resWatchedDate'),
             resWatchedWinner: document.getElementById('resWatchedWinner'),
@@ -199,7 +243,11 @@
             verdictReason: document.getElementById('verdictReason'),
             wbWarning: document.getElementById('wbWarning'),
             errorMessage: document.getElementById('errorMessage'),
-            debugInfo: document.getElementById('debugInfo')
+            debugInfo: document.getElementById('debugInfo'),
+
+            statTotal: document.getElementById('statTotal'),
+            statLucky: document.getElementById('statLucky'),
+            statRich: document.getElementById('statRich')
         };
 
         function init() {
@@ -207,6 +255,8 @@
             DOM.movieInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') handleCheckMovie();
             });
+            // Загружаем статистику сразу при входе на сайт
+            loadStatsFromSheet();
         }
 
         function setLoading(isLoading) {
@@ -230,7 +280,6 @@
             return str.toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
         }
 
-        // Очистка значения ячейки от лишних кавычек (для вывода данных)
         function cleanCellText(str) {
             if (!str) return '';
             return str.replace(/^"|"$/g, '').replace(/""/g, '"').trim();
@@ -246,6 +295,62 @@
             return properUrl;
         }
 
+        // ================= ПАРСИНГ СТАТИСТИКИ =================
+        async function loadStatsFromSheet() {
+            try {
+                const csvUrl = getCsvUrl(GOOGLE_SHEET_URL);
+                let csvText = "";
+
+                try {
+                    const res = await fetch(csvUrl);
+                    if (res.ok) csvText = await res.text();
+                } catch (e) {
+                    const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(csvUrl);
+                    const res = await fetch(proxyUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        csvText = data.contents;
+                    }
+                }
+
+                if (csvText && !csvText.toLowerCase().includes('<html')) {
+                    const rows = csvText.split('\n').map(row => row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/));
+                    let total = "-", lucky = "-", rich = "-";
+                    
+                    // Сканируем только первые 10 строк таблицы в поисках заголовков
+                    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                        for (let j = 0; j < rows[i].length; j++) {
+                            const cellRaw = rows[i][j];
+                            if (!cellRaw) continue;
+                            const cellLower = cellRaw.toLowerCase().replace(/["\r]/g, '').trim();
+                            
+                            // Если нашли заголовок, берем значение ровно под ним (строка i+1, та же колонка j)
+                            if (cellLower.includes('всего картин') && i + 1 < rows.length) {
+                                total = cleanCellText(rows[i+1][j]);
+                            }
+                            if ((cellLower.includes('самый удачливый') || cellLower.includes('самый везучий')) && i + 1 < rows.length) {
+                                lucky = cleanCellText(rows[i+1][j]);
+                            }
+                            if (cellLower.includes('самый богатый') && i + 1 < rows.length) {
+                                rich = cleanCellText(rows[i+1][j]);
+                            }
+                        }
+                    }
+
+                    // Обновляем UI
+                    DOM.statTotal.textContent = total || '-';
+                    DOM.statLucky.textContent = lucky || '-';
+                    DOM.statRich.textContent = rich || '-';
+                }
+            } catch (error) {
+                console.warn("Не удалось загрузить статистику из таблицы:", error);
+                DOM.statTotal.textContent = '?';
+                DOM.statLucky.textContent = 'Ошибка';
+                DOM.statRich.textContent = 'Ошибка';
+            }
+        }
+
+        // ================= ДЕТЕКТОР WARNER BROS =================
         async function isWarnerBros(query, movie, imdbId, kpDetailsText) {
             const wbRegex = /warner|уорнер|ворнер|нью лайн|new line cinema/i;
             
@@ -273,7 +378,7 @@
                         if (omdb.Production && wbRegex.test(omdb.Production)) return true;
                         if (omdb.Company && wbRegex.test(omdb.Company)) return true;
                     }
-                } catch(e) { console.warn("OMDb Check Error", e); }
+                } catch(e) {}
             }
 
             if (imdbId) {
@@ -291,17 +396,16 @@
                     if (wdRes.ok) {
                         const wdData = await wdRes.json();
                         for (let binding of wdData.results.bindings) {
-                            if (binding.cLabel && wbRegex.test(binding.cLabel.value)) {
-                                return true;
-                            }
+                            if (binding.cLabel && wbRegex.test(binding.cLabel.value)) return true;
                         }
                     }
-                } catch(e) { console.warn("Wikidata SPARQL Error", e); }
+                } catch(e) {}
             }
 
             return false;
         }
 
+        // ================= ОСНОВНОЙ ПОИСК =================
         async function handleCheckMovie() {
             const query = DOM.movieInput.value.trim();
             if (!query) {
@@ -348,9 +452,7 @@
                                         kpDetailsText += ' ' + detailsData.productionCompanies.map(c => c.name).join(' ');
                                     }
                                 }
-                            } catch (e) {
-                                console.warn("Ошибка получения деталей с Кинопоиска:", e);
-                            }
+                            } catch (e) {}
                         }
                     }
                 } catch (e) {
@@ -360,7 +462,7 @@
                 isWB = await isWarnerBros(query, movie, imdbId, kpDetailsText);
 
                 let isWatched = false;
-                let watchedInfo = null; // Хранилище для дополнительных данных
+                let watchedInfo = null; 
                 let rowsLength = 0;
                 let tableDebugMsg = "";
                 
@@ -416,24 +518,22 @@
                                     
                                     if (matchFound) {
                                         isWatched = true;
-                                        // Забираем данные из соседних ячеек (i+1, i+2, i+3)
                                         watchedInfo = {
                                             date: columns[i + 1] ? cleanCellText(columns[i + 1]) : '-',
                                             winner: columns[i + 2] ? cleanCellText(columns[i + 2]) : '-',
                                             buyer: columns[i + 3] ? cleanCellText(columns[i + 3]) : '-'
                                         };
-                                        break; // Выходим из цикла колонок
+                                        break; 
                                     }
                                 }
                             }
-                            if (isWatched) break; // Выходим из цикла строк
+                            if (isWatched) break; 
                         }
                         
                         tableDebugMsg = `✅ Таблица проверена (строк: ${rowsLength}). <a href="${GOOGLE_SHEET_URL}" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">Оригинальная таблица</a>`;
                     }
                 } catch (err) {
                     tableDebugMsg = `⚠️ Ошибка чтения таблицы: ${err.message}.`;
-                    console.error(err);
                 }
 
                 renderVerdict(isWatched, movie, query, tableDebugMsg, isWB, watchedInfo);
@@ -450,7 +550,7 @@
             DOM.errorMessage.classList.add('hidden-element');
             DOM.movieCardInfo.classList.remove('hidden-element');
             DOM.wbWarning.classList.add('hidden-element');
-            DOM.watchedDetails.classList.add('hidden-element'); // Прячем по умолчанию
+            DOM.watchedDetails.classList.add('hidden-element'); 
 
             DOM.debugInfo.innerHTML = tableDebugMsg;
             DOM.debugInfo.classList.remove('hidden-element');
@@ -484,7 +584,6 @@
                 DOM.verdictTitle.textContent = "Этот фильм мы уже смотрели";
                 DOM.verdictTitle.classList.add('text-blue-400', 'result-info');
 
-                // Показываем дополнительную информацию из соседних ячеек!
                 if (watchedInfo) {
                     DOM.resWatchedDate.textContent = watchedInfo.date || '—';
                     DOM.resWatchedWinner.textContent = watchedInfo.winner || '—';
@@ -532,7 +631,8 @@
             DOM.errorMessage.classList.remove('hidden-element');
         }
 
-        init();
+        // Запуск при загрузке страницы
+        window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
