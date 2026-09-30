@@ -493,15 +493,20 @@
                         
                         searchTerms = [...new Set(searchTerms)].filter(t => t.length > 0);
 
+                        // Указываем точные индексы колонок с фильмами в вашей таблице:
+                        // Столбец с мультфильмами = 1 (колонка B)
+                        // Столбец с фильмами = 6 (колонка G)
+                        // Столбец с аниме = 11 (колонка L)
+                        const MOVIE_COLUMNS = [1, 6, 11];
+
                         for (let row of rows) {
                             const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
-                            
-                            for (let i = 0; i < columns.length; i++) {
-                                const cell = columns[i];
-                                if (cell) {
-                                    const cellVal = normalizeString(cell);
+    
+                            for (let colIndex of MOVIE_COLUMNS) {
+                                if (columns[colIndex]) {
+                                    const cellVal = normalizeString(columns[colIndex]);
                                     if (cellVal.length < 2) continue; 
-                                    
+            
                                     let matchFound = false;
                                     for (let term of searchTerms) {
                                         if (cellVal === term) {
@@ -515,20 +520,21 @@
                                             }
                                         }
                                     }
-                                    
-                                    if (matchFound) {
-                                        isWatched = true;
-                                        watchedInfo = {
-                                            date: columns[i + 1] ? cleanCellText(columns[i + 1]) : '-',
-                                            winner: columns[i + 2] ? cleanCellText(columns[i + 2]) : '-',
-                                            buyer: columns[i + 3] ? cleanCellText(columns[i + 3]) : '-'
-                                        };
-                                        break; 
-                                    }
-                                }
-                            }
-                            if (isWatched) break; 
-                        }
+            
+            if (matchFound) {
+                isWatched = true;
+                // Четко берем данные из соседних ячеек справа от найденного фильма
+                watchedInfo = {
+                    date: columns[colIndex + 1] ? cleanCellText(columns[colIndex + 1]) : '-',
+                    winner: columns[colIndex + 2] ? cleanCellText(columns[colIndex + 2]) : '-',
+                    buyer: columns[colIndex + 3] ? cleanCellText(columns[colIndex + 3]) : '-'
+                };
+                break;
+            }
+        }
+    }
+    if (isWatched) break;
+}
                         
                         tableDebugMsg = `✅ Таблица проверена (строк: ${rowsLength}). <a href="${GOOGLE_SHEET_URL}" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">Оригинальная таблица</a>`;
                     }
